@@ -402,8 +402,8 @@ app.post('/api/fetch-news', async (req, res) => {
 
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
-      // 企業名がタイトル（顧客）またはタイトル+説明文（競合）に含まれない記事を除外
-      if (!isRelevantToCompany(companyName, a.title, a.desc, !isCompetitor)) return null;
+      // 顧客モードのみ関連性フィルターを適用（競合はRSSクエリ自体が会社名指定なので不要）
+      if (!isCompetitor && !isRelevantToCompany(companyName, a.title, a.desc, true)) return null;
 
       // 期限切れのセミナー・イベント記事を除外
       if (isExpiredEvent(a.title, a.desc, a.publishedAt)) return null;

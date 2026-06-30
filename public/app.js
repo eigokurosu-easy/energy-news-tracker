@@ -252,6 +252,12 @@ async function fetchCompetitorNews() {
     showToast(`${data.count}件の競合情報を取得`, 'success');
     status.textContent = `新着 ${data.count}件`;
 
+    // 取得後は1ヶ月レンジに切り替えて記事を表示
+    currentRange = 'monthly';
+    document.querySelectorAll('.range-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.range === 'monthly');
+    });
+
     await loadCompetitorNews();
     await refreshCompetitorFilter();
   } catch (err) {
