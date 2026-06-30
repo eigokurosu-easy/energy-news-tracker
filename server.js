@@ -135,6 +135,31 @@ function suggestAction(signal, urgency, isGridRelated, gridProduct) {
 // ── Relevance filters ─────────────────────────────────────
 const EVENT_KEYWORDS = ['セミナー', 'ウェビナー', '説明会', 'イベント', '展示会', 'カンファレンス', 'シンポジウム', '講演会', 'フォーラム', '研修', 'ワークショップ'];
 
+// 個人ブログ・UGCドメインのブロックリスト
+const PERSONAL_BLOG_DOMAINS = [
+  'ameblo.jp', 'ameba.jp', 'note.com', 'note.mu',
+  'hatenablog.com', 'hatena.ne.jp', 'hatenadiary.jp',
+  'livedoor.blog', 'livedoor.com', 'fc2.com',
+  'seesaa.net', 'jugem.jp', 'cocolog-nifty.com',
+  'rakuten.co.jp/blog', 'plaza.rakuten.co.jp',
+  'wordpress.com', 'blogspot.com', 'blogger.com',
+  'tumblr.com', 'medium.com', 'substack.com',
+  'qiita.com', 'zenn.dev',
+  'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
+  'youtube.com', 'tiktok.com',
+  'yahoo.co.jp/user', 'okwave.jp', 'detail.chiebukuro.yahoo.co.jp',
+];
+
+const PERSONAL_SOURCE_PATTERNS = ['ブログ', '個人', 'まとめ', '2ch', '5ch', 'まとめサイト'];
+
+function isPersonalContent(url, source) {
+  const urlLower = (url || '').toLowerCase();
+  const sourceLower = (source || '').toLowerCase();
+  if (PERSONAL_BLOG_DOMAINS.some(d => urlLower.includes(d))) return true;
+  if (PERSONAL_SOURCE_PATTERNS.some(p => sourceLower.includes(p))) return true;
+  return false;
+}
+
 function isRelevantToCompany(company, title, desc, strict = true) {
   // 会社名の主要部分（「株式会社」「ホールディングス」等を除いた名称）を生成
   const companyCore = company
@@ -404,6 +429,9 @@ app.post('/api/fetch-news', async (req, res) => {
     const enriched = rawArticles.map(a => {
       // 顧客モードのみ関連性フィルターを適用（競合はRSSクエリ自体が会社名指定なので不要）
       if (!isCompetitor && !isRelevantToCompany(companyName, a.title, a.desc, true)) return null;
+
+      // 個人ブログ・SNS・UGCを除外
+      if (isPersonalContent(a.url, a.source)) return null;
 
       // 期限切れのセミナー・イベント記事を除外
       if (isExpiredEvent(a.title, a.desc, a.publishedAt)) return null;
