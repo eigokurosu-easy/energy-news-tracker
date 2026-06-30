@@ -135,28 +135,43 @@ function suggestAction(signal, urgency, isGridRelated, gridProduct) {
 // ── Relevance filters ─────────────────────────────────────
 const EVENT_KEYWORDS = ['セミナー', 'ウェビナー', '説明会', 'イベント', '展示会', 'カンファレンス', 'シンポジウム', '講演会', 'フォーラム', '研修', 'ワークショップ'];
 
-// 個人ブログ・UGCドメインのブロックリスト
-const PERSONAL_BLOG_DOMAINS = [
-  'ameblo.jp', 'ameba.jp', 'note.com', 'note.mu',
+// 完全ブロック：個人ブログ・SNS・UGCドメイン
+const BLOCKED_DOMAINS = [
+  'ameblo.jp', 'ameba.jp',
   'hatenablog.com', 'hatena.ne.jp', 'hatenadiary.jp',
   'livedoor.blog', 'livedoor.com', 'fc2.com',
   'seesaa.net', 'jugem.jp', 'cocolog-nifty.com',
   'rakuten.co.jp/blog', 'plaza.rakuten.co.jp',
   'wordpress.com', 'blogspot.com', 'blogger.com',
-  'tumblr.com', 'medium.com', 'substack.com',
+  'tumblr.com', 'substack.com',
   'qiita.com', 'zenn.dev',
   'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
   'youtube.com', 'tiktok.com',
-  'yahoo.co.jp/user', 'okwave.jp', 'detail.chiebukuro.yahoo.co.jp',
+  'okwave.jp', 'detail.chiebukuro.yahoo.co.jp',
 ];
+
+// 企業公式アカウントのみ許可するドメイン（URLに企業名コアが含まれる場合のみ通す）
+const COMPANY_ONLY_DOMAINS = ['note.com', 'note.mu', 'medium.com'];
 
 const PERSONAL_SOURCE_PATTERNS = ['ブログ', '個人', 'まとめ', '2ch', '5ch', 'まとめサイト'];
 
-function isPersonalContent(url, source) {
+function isPersonalContent(url, source, companyName) {
   const urlLower = (url || '').toLowerCase();
   const sourceLower = (source || '').toLowerCase();
-  if (PERSONAL_BLOG_DOMAINS.some(d => urlLower.includes(d))) return true;
+
+  if (BLOCKED_DOMAINS.some(d => urlLower.includes(d))) return true;
   if (PERSONAL_SOURCE_PATTERNS.some(p => sourceLower.includes(p))) return true;
+
+  // note.com等は企業名（または中黒なしバリアント）がURLパスに含まれる場合のみ許可
+  if (COMPANY_ONLY_DOMAINS.some(d => urlLower.includes(d))) {
+    const core = (companyName || '')
+      .replace(/株式会社|（株）|\(株\)|ホールディングス|HD|グループ|電力|電気/g, '')
+      .trim();
+    const variants = [companyName, core, core.replace(/[・\s]/g, '')].filter(v => v && v.length >= 2);
+    const isOfficial = variants.some(v => urlLower.includes(v.toLowerCase()));
+    if (!isOfficial) return true; // 企業名がURLにない → 個人記事とみなしブロック
+  }
+
   return false;
 }
 
@@ -430,8 +445,8 @@ app.post('/api/fetch-news', async (req, res) => {
       // 顧客モードのみ関連性フィルターを適用（競合はRSSクエリ自体が会社名指定なので不要）
       if (!isCompetitor && !isRelevantToCompany(companyName, a.title, a.desc, true)) return null;
 
-      // 個人ブログ・SNS・UGCを除外
-      if (isPersonalContent(a.url, a.source)) return null;
+      // 個人ブログ・SNS・UGCを除外（note.comは企業公式URLのみ許可）
+      if (isPersonalContent(a.url, a.source, companyName)) return null;
 
       // 期限切れのセミナー・イベント記事を除外
       if (isExpiredEvent(a.title, a.desc, a.publishedAt)) return null;
