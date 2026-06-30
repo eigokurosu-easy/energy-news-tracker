@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>電力業界ニュースダッシュボード</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <h1>電力業界ニュースダッシュボード</h1>
+        <span class="logo-sub">Powered by GRID</span>
+      </div>
+      <div class="range-toggle">
+        <button class="range-btn active" data-range="daily">デイリー</button>
+        <button class="range-btn" data-range="weekly">週次</button>
+        <button class="range-btn" data-range="monthly">1ヶ月</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="fetch-panel">
+    <div class="fetch-inner">
+      <div class="fetch-form">
+        <label class="fetch-label">企業名</label>
+        <div class="fetch-row">
+          <input type="text" id="companyInput" placeholder="例：関西電力、東京電力、中部電力..." class="company-input" />
+          <button id="fetchBtn" class="btn-primary">
+            <span>🔍</span> ニュースを取得
+          </button>
+        </div>
+        <div class="company-history" id="companyHistory"></div>
+      </div>
+      <div class="fetch-status" id="fetchStatus"></div>
+    </div>
+  </section>
+
+  <section class="category-bar">
+    <div class="category-inner">
+      <span class="category-label">カテゴリ</span>
+      <div class="category-tabs">
+        <button class="cat-btn active" data-cat="all">すべて</button>
+        <button class="cat-btn" data-cat="小売り">小売り</button>
+        <button class="cat-btn" data-cat="発電">発電</button>
+        <button class="cat-btn" data-cat="送配電">送配電</button>
+      </div>
+      <select id="companyFilter" class="company-select">
+        <option value="">すべての企業</option>
+      </select>
+    </div>
+  </section>
+
+  <div class="content-area">
+    <section class="grid-topics" id="gridTopicsSection" style="display:none">
+      <div class="grid-header-bar">
+        <span class="grid-badge">Grid Topics</span>
+        <h2>GRIDに関連するニュース</h2>
+        <span class="section-count" id="gridCount">0件</span>
+      </div>
+      <div class="grid-articles-inner">
+        <div class="news-grid" id="gridArticles"></div>
+      </div>
+    </section>
+
+    <div class="categories-container" id="categoriesContainer"></div>
+
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">📰</div>
+      <p>ニュースがありません</p>
+      <p class="empty-sub">企業名を入力してニュースを取得してください</p>
+    </div>
+
+    <div class="loading-state" id="loadingState" style="display:none">
+      <div class="spinner"></div>
+      <p>Claude がニュースを検索中...</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
