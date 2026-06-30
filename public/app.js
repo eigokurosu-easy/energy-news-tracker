@@ -1,4 +1,5 @@
 const CATEGORY_CONFIG = {
+  'インシデント': { key: 'incident' },
   '小売り': { key: 'retail' },
   '発電':   { key: 'generation' },
   '送配電': { key: 'transmission' },

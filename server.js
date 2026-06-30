@@ -56,7 +56,15 @@ const SIGNAL_RULES = {
   '組織変化': ['社長', '人事', '役員', '体制', '分社', '統合', 'M&A', '買収', '合併', '子会社', '新組織', '新部署', '代表取締役'],
 };
 
+const INCIDENT_KEYWORDS = ['トラブル', '障害', '不具合', '事故', '故障', '漏電', '火災', '爆発', '漏洩', '漏れ',
+  '謝罪', 'お詫び', '陳謝', '遺憾', '補償', '賠償',
+  '法令違反', '行政処分', '業務停止', '改善命令', '課徴金', '措置命令', '行政指導', '立入検査',
+  'データ漏洩', '個人情報', 'サイバー', '不正アクセス', 'セキュリティインシデント',
+  '被害', '損害', '欠陥', 'リコール', '回収', '中断', 'システム障害', '大規模停電',
+  '書類送検', '逮捕', '起訴', '不祥事', '隠蔽', '虚偽報告', '検査不正'];
+
 const CATEGORY_RULES = {
+  'インシデント': INCIDENT_KEYWORDS,
   '小売り': ['小売', '料金プラン', '電気料金', '料金改定', '需要家', 'PPS', '新電力', '切り替え', 'スイッチング', 'コーポレートPPA', 'オフサイトPPA', '従量', '低圧', '高圧', '電力販売', '供給契約', 'でんき', 'オール電化', '電力会社', 'DR', 'デマンドレスポンス', 'アグリゲーター', 'BCP', '電気代'],
   '発電': ['発電', '発電所', '再エネ', '再生可能エネルギー', '太陽光', '風力', '水力', '原子力', '原発', '火力', 'LNG', '石炭', '燃料', 'kWh', 'MW', 'GW', 'バイオマス', '地熱', 'FIT', 'FIP', '電源', '出力', '発電量', 'PPA', 'ソーラー', '蓄電池', 'VPP', '水素', 'アンモニア', 'CCS'],
   '送配電': ['送電', '配電', '送配電', '系統', '連系', 'ネットワーク', '接続', '変電', '潮流', '増強', '架線', '鉄塔', '地中化', '停電', '復旧', '電力融通', '周波数', '電圧', '調整力', '容量市場', '需給調整', 'OCCTO', '広域機関', 'インバランス', '一般送配電', 'スマートグリッド', 'DER'],
@@ -112,13 +120,15 @@ function analyzeGridRelevance(title, desc) {
   };
 }
 
-function calcUrgency(signal, isGridRelated) {
+function calcUrgency(signal, isGridRelated, category) {
+  if (category === 'インシデント') return 'high';
   if (isGridRelated && ['投資・拡大', '課題・問題'].includes(signal)) return 'high';
   if (isGridRelated || signal === '投資・拡大') return 'medium';
   return 'low';
 }
 
-function suggestAction(signal, urgency, isGridRelated, gridProduct) {
+function suggestAction(signal, urgency, isGridRelated, gridProduct, category) {
+  if (category === 'インシデント') return '🚨 顧客インシデント把握 — 影響範囲・対応状況を確認し、フォロー連絡を検討';
   if (urgency === 'high') {
     if (gridProduct === '火力最適化') return '🔥 ELD単価提案の絶好タイミング — 至急アポ打診';
     if (gridProduct === '需給管理') return '🔥 需給管理AIの提案機会 — 担当者へ即コンタクト';
@@ -247,6 +257,9 @@ async function fetchRSS(company) {
     `${company} site:atpress.ne.jp`,
     `${company} site:kyodonewsprwire.jp`,
     `${company} プレスリリース 発表`,
+    // インシデント専用
+    `${company} トラブル 障害 事故 謝罪`,
+    `${company} 行政処分 法令違反 不祥事`,
   ];
 
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -420,6 +433,9 @@ app.post('/api/fetch-news', async (req, res) => {
       `${name} site:atpress.ne.jp`,
       `${name} site:kyodonewsprwire.jp`,
       `${name} プレスリリース 発表`,
+      // インシデント専用
+      `${name} トラブル 障害 事故 謝罪`,
+      `${name} 行政処分 法令違反 不祥事`,
     ];
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
     const articles = [];
@@ -476,8 +492,8 @@ app.post('/api/fetch-news', async (req, res) => {
         signal = classifySignal(a.title, a.desc);
         const grid = analyzeGridRelevance(a.title, a.desc);
         isGridRelated = grid.isGridRelated; gridProduct = grid.gridProduct; gridRelevance = grid.gridRelevance;
-        urgency = calcUrgency(signal, isGridRelated);
-        action = suggestAction(signal, urgency, isGridRelated, gridProduct);
+        urgency = calcUrgency(signal, isGridRelated, category);
+        action = suggestAction(signal, urgency, isGridRelated, gridProduct, category);
       }
 
       let pubDate = '';

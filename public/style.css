@@ -521,3 +521,15 @@ header {
   transition: all 0.15s;
 }
 .clear-pins-btn:hover { border-color: var(--urgency-high); color: var(--urgency-high); }
+
+/* ── Incident category ── */
+:root {
+  --cat-incident: #dc2626;
+  --cat-incident-bg: #fef2f2;
+  --cat-incident-border: #fca5a5;
+}
+.cat-tag.incident { background: var(--cat-incident-bg); color: var(--cat-incident); border-color: var(--cat-incident-border); }
+.cat-line.incident { background: var(--cat-incident); }
+.filter-btn-incident { color: var(--cat-incident) !important; }
+.filter-btn-incident.active { background: var(--cat-incident) !important; border-color: var(--cat-incident) !important; color: #fff !important; }
+.article-card:has(.cat-tag.incident) { border-left: 3px solid var(--cat-incident); }
