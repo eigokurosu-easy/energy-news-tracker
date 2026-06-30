@@ -22,9 +22,11 @@
           <button class="mode-btn" data-mode="competitor">競合情報</button>
         </div>
         <div class="range-toggle">
-          <button class="range-btn active" data-range="daily">デイリー</button>
-          <button class="range-btn" data-range="weekly">週次</button>
+          <button class="range-btn active" data-range="daily">今日</button>
+          <button class="range-btn" data-range="weekly">7日</button>
           <button class="range-btn" data-range="monthly">1ヶ月</button>
+          <button class="range-btn" data-range="3months">3ヶ月</button>
+          <button class="range-btn" data-range="6months">半年</button>
         </div>
       </div>
     </div>
@@ -68,13 +70,21 @@
             <button class="filter-btn" data-signal="組織変化">組織変化</button>
           </div>
         </div>
-        <div class="filter-group filter-group-right">
+        <div class="filter-group">
           <span class="filter-label">カテゴリ</span>
           <div class="filter-tabs" id="categoryTabs">
             <button class="filter-btn active" data-cat="all">すべて</button>
             <button class="filter-btn" data-cat="小売り">小売り</button>
             <button class="filter-btn" data-cat="発電">発電</button>
             <button class="filter-btn" data-cat="送配電">送配電</button>
+          </div>
+        </div>
+        <div class="filter-group filter-group-right">
+          <span class="filter-label">並び替え</span>
+          <div class="filter-tabs" id="sortTabs">
+            <button class="filter-btn active" data-sort="urgency">重要度</button>
+            <button class="filter-btn" data-sort="date">日付</button>
+            <button class="filter-btn" data-sort="category">カテゴリ</button>
           </div>
           <select id="companyFilter" class="company-select">
             <option value="">すべての企業</option>

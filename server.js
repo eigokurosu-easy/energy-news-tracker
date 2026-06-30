@@ -247,7 +247,7 @@ async function saveNews(news) {
 
 function cleanOldNews(news) {
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
+  cutoff.setMonth(cutoff.getMonth() - 6);
   return news.filter(n => new Date(n.fetchedAt) > cutoff);
 }
 
@@ -266,23 +266,42 @@ app.get('/api/news', async (req, res) => {
     if (company) news = news.filter(n => n.company === company);
 
     const now = new Date();
+    // publishedAt基準でフィルタリング（なければfetchedAtにフォールバック）
+    const getDate = n => new Date(n.publishedAt || n.fetchedAt);
     if (range === 'daily') {
       const today = new Date(now); today.setHours(0, 0, 0, 0);
-      news = news.filter(n => new Date(n.fetchedAt) >= today);
+      news = news.filter(n => getDate(n) >= today);
     } else if (range === 'weekly') {
       const w = new Date(now); w.setDate(w.getDate() - 7);
-      news = news.filter(n => new Date(n.fetchedAt) >= w);
+      news = news.filter(n => getDate(n) >= w);
+    } else if (range === 'monthly') {
+      const m = new Date(now); m.setMonth(m.getMonth() - 1);
+      news = news.filter(n => getDate(n) >= m);
+    } else if (range === '3months') {
+      const m = new Date(now); m.setMonth(m.getMonth() - 3);
+      news = news.filter(n => getDate(n) >= m);
+    } else if (range === '6months') {
+      const m = new Date(now); m.setMonth(m.getMonth() - 6);
+      news = news.filter(n => getDate(n) >= m);
     }
 
     if (category && category !== 'all') news = news.filter(n => n.category === category);
     if (signal && signal !== 'all') news = news.filter(n => n.signal === signal);
     if (urgency && urgency !== 'all') news = news.filter(n => n.urgency === urgency);
 
-    news.sort((a, b) => {
+    const { sort = 'urgency' } = req.query;
+    if (sort === 'date') {
+      news.sort((a, b) => getDate(b) - getDate(a));
+    } else if (sort === 'category') {
+      const catOrder = { '小売り': 0, '発電': 1, '送配電': 2, '競合情報': 3 };
+      news.sort((a, b) => (catOrder[a.category] ?? 9) - (catOrder[b.category] ?? 9) || getDate(b) - getDate(a));
+    } else {
+      // デフォルト: urgency順
       const urgencyOrder = { high: 0, medium: 1, low: 2 };
-      return (urgencyOrder[a.urgency] ?? 2) - (urgencyOrder[b.urgency] ?? 2)
-        || new Date(b.fetchedAt) - new Date(a.fetchedAt);
-    });
+      news.sort((a, b) =>
+        (urgencyOrder[a.urgency] ?? 2) - (urgencyOrder[b.urgency] ?? 2) || getDate(b) - getDate(a)
+      );
+    }
 
     res.json({ success: true, articles: news });
   } catch (err) {

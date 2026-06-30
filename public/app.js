@@ -8,6 +8,7 @@ let currentRange = 'daily';
 let currentCategory = 'all';
 let currentSignal = 'all';
 let currentUrgency = 'all';
+let currentSort = 'urgency';
 let currentCompany = '';
 let currentMode = 'customer';
 let currentCompetitorSignal = 'all';
@@ -86,6 +87,15 @@ function setupFilters() {
       btn.classList.add('active');
       currentCategory = btn.dataset.cat;
       renderArticles(allArticles);
+    });
+  });
+
+  document.querySelectorAll('#sortTabs .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#sortTabs .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSort = btn.dataset.sort;
+      loadNews();
     });
   });
 }
@@ -258,7 +268,7 @@ async function fetchCompetitorNews() {
 async function loadNews() {
   showLoading(true);
   try {
-    const params = new URLSearchParams({ range: currentRange, mode: 'customer' });
+    const params = new URLSearchParams({ range: currentRange, mode: 'customer', sort: currentSort });
     if (currentCompany) params.set('company', currentCompany);
 
     const res = await fetch(`/api/news?${params}`);
