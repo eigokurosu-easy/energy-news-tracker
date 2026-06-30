@@ -135,20 +135,23 @@ function suggestAction(signal, urgency, isGridRelated, gridProduct) {
 // ── Relevance filters ─────────────────────────────────────
 const EVENT_KEYWORDS = ['セミナー', 'ウェビナー', '説明会', 'イベント', '展示会', 'カンファレンス', 'シンポジウム', '講演会', 'フォーラム', '研修', 'ワークショップ'];
 
-function isRelevantToCompany(company, title, desc) {
-  // 企業名がタイトルに含まれている記事のみ信頼度が高い
-  // タイトルに含まれない場合は関連性が低いと判断
-  const titleLower = title.toLowerCase();
-  const companyLower = company.toLowerCase();
-
+function isRelevantToCompany(company, title, desc, strict = true) {
   // 会社名の主要部分（「株式会社」「ホールディングス」等を除いた名称）を生成
   const companyCore = company
     .replace(/株式会社|（株）|\(株\)|ホールディングス|HD|グループ|電力|電気/g, '')
     .trim();
+  // 中黒・スペースなしのバリエーションも対象（例：アルゴ・アーティス → アルゴアーティス）
+  const companyNoPunct = companyCore.replace(/[・\s]/g, '');
 
-  return title.includes(company) ||
-         title.includes(companyCore) ||
-         titleLower.includes(companyLower);
+  const variants = [company, companyCore, companyNoPunct].filter(v => v.length >= 2);
+  const inTitle = variants.some(v => title.includes(v));
+  if (inTitle) return true;
+  // strict=false（競合モード等）の場合は説明文も対象
+  if (!strict) {
+    const fullText = title + ' ' + desc;
+    return variants.some(v => fullText.includes(v));
+  }
+  return false;
 }
 
 function isExpiredEvent(title, desc, publishedAt) {
@@ -399,8 +402,8 @@ app.post('/api/fetch-news', async (req, res) => {
 
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
-      // 企業名がタイトルに含まれない記事を除外
-      if (!isRelevantToCompany(companyName, a.title, a.desc)) return null;
+      // 企業名がタイトル（顧客）またはタイトル+説明文（競合）に含まれない記事を除外
+      if (!isRelevantToCompany(companyName, a.title, a.desc, !isCompetitor)) return null;
 
       // 期限切れのセミナー・イベント記事を除外
       if (isExpiredEvent(a.title, a.desc, a.publishedAt)) return null;
