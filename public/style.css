@@ -65,6 +65,20 @@ header {
 .logo h1 { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
 .logo-sub { font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em; display: block; }
 
+/* header-right */
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+/* Mode toggle */
+.mode-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.mode-btn {
+  padding: 5px 16px; border: none; border-right: 1px solid var(--border);
+  background: var(--bg); color: var(--text-dim); cursor: pointer;
+  font-size: 12px; font-family: var(--font); font-weight: 600; transition: all 0.15s; letter-spacing: 0.04em;
+}
+.mode-btn:last-child { border-right: none; }
+.mode-btn.active { background: var(--text); color: #fff; }
+.mode-btn:hover:not(.active) { background: var(--bg-sub); color: var(--text); }
+
 .range-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .range-btn {
   padding: 5px 16px; border: none; border-right: 1px solid var(--border);
@@ -395,3 +409,84 @@ header {
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.error { background: var(--urgency-high); }
 .toast.success { background: var(--accent-green); }
+
+/* ── Competitor Mode ── */
+:root {
+  --competitor: #7c3aed;
+  --competitor-bg: #f5f3ff;
+  --competitor-border: #c4b5fd;
+  --csig-product: #1d4ed8;
+  --csig-product-bg: #eff6ff;
+  --csig-win: #059669;
+  --csig-win-bg: #ecfdf5;
+  --csig-partner: #b45309;
+  --csig-partner-bg: #fffbeb;
+  --csig-funding: #7c3aed;
+  --csig-funding-bg: #f5f3ff;
+  --csig-hr: #0f766e;
+  --csig-hr-bg: #f0fdfa;
+  --csig-strategy: #c0392b;
+  --csig-strategy-bg: #fdf2f1;
+  --csig-other: #6b7280;
+  --csig-other-bg: #f3f4f6;
+}
+
+.competitor-panel { border-bottom-color: var(--competitor-border) !important; }
+.btn-competitor {
+  padding: 9px 20px; border-radius: var(--radius);
+  background: var(--competitor); border: 1px solid var(--competitor);
+  color: #fff; font-size: 12px; font-family: var(--font);
+  font-weight: 600; cursor: pointer; white-space: nowrap; letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+.btn-competitor:hover { background: #6d28d9; }
+.btn-competitor:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.history-tag.competitor {
+  border-color: var(--competitor-border);
+  color: var(--competitor);
+}
+.history-tag.competitor:hover { background: var(--competitor); color: #fff; border-color: var(--competitor); }
+
+/* Competitor signal tags */
+.csignal-tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.csignal-tag.csig-product   { background: var(--csig-product-bg);  color: var(--csig-product);  border-color: #bfdbfe; }
+.csignal-tag.csig-win       { background: var(--csig-win-bg);      color: var(--csig-win);      border-color: #a7f3d0; }
+.csignal-tag.csig-partner   { background: var(--csig-partner-bg);  color: var(--csig-partner);  border-color: #fde68a; }
+.csignal-tag.csig-funding   { background: var(--csig-funding-bg);  color: var(--csig-funding);  border-color: #ddd6fe; }
+.csignal-tag.csig-hr        { background: var(--csig-hr-bg);       color: var(--csig-hr);       border-color: #99f6e4; }
+.csignal-tag.csig-strategy  { background: var(--csig-strategy-bg); color: var(--csig-strategy); border-color: #fecaca; }
+.csignal-tag.csig-other     { background: var(--csig-other-bg);    color: var(--csig-other);    border-color: #e5e7eb; }
+
+/* Competitor section */
+.competitor-landscape { padding: 24px 0; }
+.competitor-section {
+  margin-bottom: 36px;
+}
+.competitor-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px; margin-bottom: 16px;
+}
+.competitor-title-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.competitor-icon { font-size: 14px; }
+.competitor-name { font-size: 14px; font-weight: 700; }
+.competitor-count {
+  font-size: 11px; color: var(--text-dim);
+  background: var(--bg-subtle); padding: 2px 8px; border-radius: 10px;
+}
+
+/* Competitor card */
+.competitor-card { border-left: 2px solid var(--competitor-border) !important; }
+
+.competitor-action {
+  background: var(--competitor-bg) !important;
+  border-color: var(--competitor-border) !important;
+  color: var(--competitor) !important;
+}

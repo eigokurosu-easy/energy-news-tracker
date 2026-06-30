@@ -14,6 +14,39 @@ const DATA_FILE = path.join(__dirname, 'data', 'news.json');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── Competitor signal rules ───────────────────────────────
+const COMPETITOR_SIGNAL_RULES = {
+  '新製品・機能': ['新製品', 'リリース', '新機能', 'バージョンアップ', 'アップデート', '新サービス', '提供開始', '新システム', '新ソリューション', 'ローンチ', '発売'],
+  '受注・導入事例': ['受注', '採用', '導入', '選定', '契約締結', '実績', '事例', '納入', '稼働開始', 'PoC', '実証実験', '試験導入'],
+  '提携・協業': ['提携', '協業', '協力', 'アライアンス', 'パートナー', '合弁', 'MOU', '連携協定', '共同開発', '共同研究'],
+  '資金調達・上場': ['資金調達', '調達', '上場', 'IPO', 'シリーズ', '出資', '投資', 'VC', 'ファンド', '増資', '評価額'],
+  '人事・体制': ['社長', '代表', '人事', 'CEO', 'CTO', '役員', '体制変更', '新体制', '代表取締役', '就任', '退任'],
+  '価格・戦略': ['値下げ', '価格改定', '料金', 'プライシング', '無償', '無料', '戦略', '方針', '撤退', '縮小', '新市場'],
+};
+
+function classifyCompetitorSignal(title, desc) {
+  const text = title + ' ' + desc;
+  const scores = {};
+  for (const [signal, keywords] of Object.entries(COMPETITOR_SIGNAL_RULES)) {
+    scores[signal] = keywords.filter(kw => text.includes(kw)).length;
+  }
+  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  return best[1] > 0 ? best[0] : '一般情報';
+}
+
+function suggestCompetitorAction(signal) {
+  const map = {
+    '新製品・機能':   '🔍 競合の新機能を把握 — 差別化ポイントを営業資料に反映',
+    '受注・導入事例': '⚡ 競合の導入先を特定 — 同業他社への先手提案を検討',
+    '提携・協業':     '🤝 競合のエコシステム拡大 — 我々の連携戦略を見直す',
+    '資金調達・上場': '💰 競合が資金力を強化 — 製品投資・値下げリスクに注意',
+    '人事・体制':     '👤 競合の意思決定者が変化 — 対競合トークを更新する機会',
+    '価格・戦略':     '💡 競合の価格戦略を把握 — 自社の優位性を再確認',
+    '一般情報':       '📰 競合動向として情報収集',
+  };
+  return map[signal] || '📰 競合動向として情報収集';
+}
+
 // ── Signal classification ─────────────────────────────────
 const SIGNAL_RULES = {
   '投資・拡大': ['投資', '増設', '新設', '拡大', '着手', '導入', '採択', '受注', '建設', '計画発表', '包括協定', '連携協定', 'MOU', '調印', '新工場', '新拠点', '増強', '整備'],
@@ -191,8 +224,12 @@ app.get('/api/status', (req, res) => res.json({ ready: true }));
 
 app.get('/api/news', async (req, res) => {
   try {
-    const { company, range, category, signal, urgency } = req.query;
+    const { company, range, category, signal, urgency, mode } = req.query;
     let news = cleanOldNews(await loadNews());
+
+    // mode: 'customer' | 'competitor' | undefined(all)
+    if (mode === 'competitor') news = news.filter(n => n.companyType === 'competitor');
+    else if (mode === 'customer') news = news.filter(n => n.companyType !== 'competitor');
 
     if (company) news = news.filter(n => n.company === company);
 
@@ -223,8 +260,12 @@ app.get('/api/news', async (req, res) => {
 
 app.get('/api/companies', async (req, res) => {
   try {
+    const { mode } = req.query;
     const news = await loadNews();
-    const companies = [...new Set(news.map(n => n.company))].sort();
+    let filtered = news;
+    if (mode === 'competitor') filtered = news.filter(n => n.companyType === 'competitor');
+    else if (mode === 'customer') filtered = news.filter(n => n.companyType !== 'competitor');
+    const companies = [...new Set(filtered.map(n => n.company))].sort();
     res.json({ companies });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -261,26 +302,70 @@ app.get('/api/summary', async (req, res) => {
 });
 
 app.post('/api/fetch-news', async (req, res) => {
-  const { company } = req.body;
+  const { company, companyType = 'customer' } = req.body;
   if (!company?.trim()) return res.status(400).json({ success: false, error: '企業名を入力してください' });
 
   const companyName = company.trim();
+  const isCompetitor = companyType === 'competitor';
+
+  // 競合用のRSSクエリ
+  async function fetchCompetitorRSS(name) {
+    const queries = [
+      `${name} 新製品 サービス リリース`,
+      `${name} 受注 導入 採用 契約`,
+      `${name} 提携 協業 パートナー`,
+      `${name} 資金調達 上場 IPO`,
+      `${name} 電力 エネルギー AI システム`,
+    ];
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+    const articles = [];
+    for (const q of queries) {
+      try {
+        const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP&ceid=JP:ja`;
+        const xml = await fetchUrl(url);
+        const parsed = parser.parse(xml);
+        const items = parsed?.rss?.channel?.item || [];
+        const list = Array.isArray(items) ? items : [items];
+        for (const item of list.slice(0, 5)) {
+          const title = cleanText(item.title);
+          const link = cleanText(item.link || (typeof item.guid === 'string' ? item.guid : item.guid?.['#text']) || '');
+          const pubDate = cleanText(item.pubDate);
+          const desc = cleanText(item.description).split(' - ')[0];
+          const source = cleanText(item.source?.['#text'] || item.source || '');
+          if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source });
+        }
+      } catch (e) { console.error(`Competitor RSS [${q}]:`, e.message); }
+    }
+    const seen = new Set();
+    return articles.filter(a => { const k = a.title.slice(0, 30); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
 
   try {
-    const rawArticles = await fetchRSS(companyName);
+    const rawArticles = isCompetitor ? await fetchCompetitorRSS(companyName) : await fetchRSS(companyName);
     if (rawArticles.length === 0) {
       return res.json({ success: true, count: 0, articles: [], message: 'ニュースが見つかりませんでした' });
     }
 
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
-      const category = classifyCategory(a.title, a.desc);
-      if (!category) return null;
+      let category = null, signal, urgency, action, isGridRelated = false, gridProduct = '', gridRelevance = '';
 
-      const signal = classifySignal(a.title, a.desc);
-      const { isGridRelated, gridProduct, gridRelevance } = analyzeGridRelevance(a.title, a.desc);
-      const urgency = calcUrgency(signal, isGridRelated);
-      const action = suggestAction(signal, urgency, isGridRelated, gridProduct);
+      if (isCompetitor) {
+        // 競合モード: カテゴリ不要、競合シグナルで分類
+        signal = classifyCompetitorSignal(a.title, a.desc);
+        urgency = ['受注・導入事例', '新製品・機能', '資金調達・上場'].includes(signal) ? 'high'
+                : ['提携・協業', '価格・戦略'].includes(signal) ? 'medium' : 'low';
+        action = suggestCompetitorAction(signal);
+        category = '競合情報'; // 競合は固定カテゴリ
+      } else {
+        category = classifyCategory(a.title, a.desc);
+        if (!category) return null;
+        signal = classifySignal(a.title, a.desc);
+        const grid = analyzeGridRelevance(a.title, a.desc);
+        isGridRelated = grid.isGridRelated; gridProduct = grid.gridProduct; gridRelevance = grid.gridRelevance;
+        urgency = calcUrgency(signal, isGridRelated);
+        action = suggestAction(signal, urgency, isGridRelated, gridProduct);
+      }
 
       let pubDate = '';
       if (a.publishedAt) {
@@ -290,6 +375,7 @@ app.post('/api/fetch-news', async (req, res) => {
       return {
         id: crypto.randomUUID(),
         company: companyName,
+        companyType,
         title: a.title,
         summary: a.desc || a.title,
         url: a.url,
