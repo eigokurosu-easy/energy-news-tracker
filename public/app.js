@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCompanyFilter();
   setupCompetitorForm();
   setupCompetitorFilters();
+  updatePinCount();
   loadNews();
 });
 
@@ -388,7 +389,7 @@ function renderArticles(articles) {
   }).join('');
 }
 
-function renderCard(article) {
+function renderCard(article, forceShowPin = false) {
   const cfg = CATEGORY_CONFIG[article.category] || { key: 'retail' };
   const pubDate = article.publishedAt
     ? article.publishedAt.slice(5).replace('-', '/')
@@ -406,6 +407,8 @@ function renderCard(article) {
   );
 
   const isHighUrgency = article.urgency === 'high';
+  const isPinned = !!getPins()[article.id];
+  const articleJson = escHtml(JSON.stringify(article));
 
   return `
     <div class="article-card">
@@ -416,6 +419,8 @@ function renderCard(article) {
         <div class="article-meta-right">
           <span class="article-company">${escHtml(article.company)}</span>
           <span class="article-date">${pubDate}</span>
+          <button class="pin-btn ${isPinned ? 'pinned' : ''}" data-id="${escHtml(article.id)}"
+            onclick='togglePin(${JSON.stringify(article.id)}, ${articleJson})' title="${isPinned ? 'ピン解除' : 'ピン留め'}">📌</button>
         </div>
       </div>
       <div class="article-title">${escHtml(article.title)}</div>
@@ -542,6 +547,82 @@ function signalTagKey(signal) {
     '価格・戦略': 'csig-strategy',
   };
   return map[signal] || 'csig-other';
+}
+
+// ── Pin / Bookmark ────────────────────────────────────────
+let pinViewActive = false;
+
+function getPins() {
+  return JSON.parse(localStorage.getItem('pinnedArticles') || '{}');
+}
+
+function togglePin(id, article) {
+  const pins = getPins();
+  if (pins[id]) {
+    delete pins[id];
+  } else {
+    pins[id] = article;
+  }
+  localStorage.setItem('pinnedArticles', JSON.stringify(pins));
+  updatePinCount();
+  // ピンビュー中なら再描画
+  if (pinViewActive) renderPinView();
+  // 対象ボタンのアイコンだけ更新
+  const btn = document.querySelector(`.pin-btn[data-id="${id}"]`);
+  if (btn) btn.classList.toggle('pinned', !!pins[id]);
+}
+
+function updatePinCount() {
+  const count = Object.keys(getPins()).length;
+  const el = document.getElementById('pinCount');
+  if (el) el.textContent = count > 0 ? count : '';
+}
+
+function togglePinView() {
+  pinViewActive = !pinViewActive;
+  const btn = document.getElementById('pinViewBtn');
+  if (pinViewActive) {
+    btn.classList.add('active');
+    renderPinView();
+  } else {
+    btn.classList.remove('active');
+    renderArticles(allArticles);
+  }
+}
+
+function renderPinView() {
+  const pins = getPins();
+  const articles = Object.values(pins);
+  const container = document.getElementById('categoriesContainer');
+  const gridSection = document.getElementById('gridTopicsSection');
+  const empty = document.getElementById('emptyState');
+  gridSection.style.display = 'none';
+
+  if (articles.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    document.querySelector('.empty-icon').textContent = '📌';
+    document.querySelector('#emptyState p').textContent = 'ピン留めした記事がありません';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = `
+    <div class="category-section">
+      <div class="cat-section-header">
+        <span class="cat-line" style="background:#f59e0b"></span>
+        <h3>📌 ピン留め記事</h3>
+        <span class="cat-article-count">${articles.length}件</span>
+        <button class="clear-pins-btn" onclick="clearAllPins()">すべて解除</button>
+      </div>
+      <div class="news-grid">${articles.map(a => renderCard(a, true)).join('')}</div>
+    </div>`;
+}
+
+function clearAllPins() {
+  if (!confirm('ピン留めをすべて解除しますか？')) return;
+  localStorage.removeItem('pinnedArticles');
+  updatePinCount();
+  renderPinView();
 }
 
 // ── Utils ─────────────────────────────────────────────────

@@ -490,3 +490,34 @@ header {
   border-color: var(--competitor-border) !important;
   color: var(--competitor) !important;
 }
+
+/* ── Pin / Bookmark ── */
+.pin-view-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-muted); font-size: 11px; font-family: var(--font);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.pin-view-btn:hover { border-color: #f59e0b; color: #b45309; }
+.pin-view-btn.active { background: #fffbeb; border-color: #f59e0b; color: #b45309; font-weight: 600; }
+.pin-count {
+  background: #f59e0b; color: #fff;
+  border-radius: 10px; padding: 0 5px; font-size: 10px; font-weight: 700;
+}
+
+.pin-btn {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 12px; opacity: 0.25; transition: all 0.15s;
+  padding: 0 2px; line-height: 1;
+}
+.pin-btn:hover { opacity: 0.7; transform: scale(1.2); }
+.pin-btn.pinned { opacity: 1; filter: none; }
+
+.clear-pins-btn {
+  margin-left: auto; font-size: 11px; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 20px;
+  padding: 2px 10px; cursor: pointer; font-family: var(--font);
+  transition: all 0.15s;
+}
+.clear-pins-btn:hover { border-color: var(--urgency-high); color: var(--urgency-high); }

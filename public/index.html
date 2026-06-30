@@ -79,13 +79,16 @@
             <button class="filter-btn" data-cat="送配電">送配電</button>
           </div>
         </div>
-        <div class="filter-group filter-group-right">
+        <div class="filter-group">
           <span class="filter-label">並び替え</span>
           <div class="filter-tabs" id="sortTabs">
             <button class="filter-btn active" data-sort="urgency">重要度</button>
             <button class="filter-btn" data-sort="date">日付</button>
             <button class="filter-btn" data-sort="category">カテゴリ</button>
           </div>
+        </div>
+        <div class="filter-group filter-group-right">
+          <button class="pin-view-btn" id="pinViewBtn" onclick="togglePinView()">📌 ピン留め <span class="pin-count" id="pinCount"></span></button>
           <select id="companyFilter" class="company-select">
             <option value="">すべての企業</option>
           </select>
