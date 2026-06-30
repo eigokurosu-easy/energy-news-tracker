@@ -14,71 +14,89 @@ const DATA_FILE = path.join(__dirname, 'data', 'news.json');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Classification rules ──────────────────────────────────
-const CATEGORY_RULES = {
-  '小売り': [
-    '小売', '料金プラン', '電気料金', '料金改定', '需要家', 'PPS', '新電力',
-    '切り替え', 'スイッチング', 'サービス開始', 'コーポレートPPA', 'オフサイトPPA',
-    '従量', '低圧', '高圧', 'アンペア', '電力販売', '供給契約', 'でんき'
-  ],
-  '発電': [
-    '発電', '発電所', '再エネ', '再生可能エネルギー', '太陽光', '風力', '水力',
-    '原子力', '原発', '火力', 'LNG', '石炭', '燃料', 'kWh', 'MW', 'GW',
-    'バイオマス', '地熱', 'FIT', 'FIP', '電源', '出力', '発電量', 'PPA',
-    'ソーラー', '蓄電池', '蓄電', 'VPP'
-  ],
-  '送配電': [
-    '送電', '配電', '送配電', '系統', '連系', 'ネットワーク', '接続', '変電',
-    '潮流', '増強', '整備', '架線', '鉄塔', '地中化', '停電', '復旧',
-    '電力融通', '周波数', '電圧', '調整力', '容量市場', '需給調整', 'OCCTO',
-    '広域機関', 'インバランス', '一般送配電'
-  ],
+// ── Signal classification ─────────────────────────────────
+const SIGNAL_RULES = {
+  '投資・拡大': ['投資', '増設', '新設', '拡大', '着手', '導入', '採択', '受注', '建設', '計画発表', '包括協定', '連携協定', 'MOU', '調印', '新工場', '新拠点', '増強', '整備'],
+  '課題・問題': ['課題', '問題', 'コスト削減', '効率化', '困難', '対策', '改善', '削減', 'リスク', '停電', '不具合', 'トラブル', '赤字', '値上げ', '負担増', '逼迫'],
+  '規制・政策': ['規制', 'ガイドライン', '法改正', '義務化', '省エネ', '政策', '制度', '認定', '指針', '閣議決定', '省令', '条例', '審議', '答申'],
+  '競合動向': ['提携', '協業', '採用', '選定', 'システム導入', 'ソリューション採用', '他社', '競合', '入札', '落札', '契約締結'],
+  '組織変化': ['社長', '人事', '役員', '体制', '分社', '統合', 'M&A', '買収', '合併', '子会社', '新組織', '新部署', '代表取締役'],
 };
 
-const GRID_KEYWORDS = [
-  '需給最適化', '需給管理', '需給調整', 'ELD', '単価表', '燃料費最適化',
-  '火力最適化', '系統運用', 'AIエージェント', 'AI活用', 'DX', 'デジタル',
-  'スケジューリング', '最適化AI', '需給予測', '電力AI', '業務効率化',
-  'データ活用', 'データ統合', '意思決定支援', '自動化', 'SaaS'
-];
+const CATEGORY_RULES = {
+  '小売り': ['小売', '料金プラン', '電気料金', '料金改定', '需要家', 'PPS', '新電力', '切り替え', 'スイッチング', 'コーポレートPPA', 'オフサイトPPA', '従量', '低圧', '高圧', '電力販売', '供給契約', 'でんき', 'オール電化', '電力会社', 'DR', 'デマンドレスポンス', 'アグリゲーター', 'BCP', '電気代'],
+  '発電': ['発電', '発電所', '再エネ', '再生可能エネルギー', '太陽光', '風力', '水力', '原子力', '原発', '火力', 'LNG', '石炭', '燃料', 'kWh', 'MW', 'GW', 'バイオマス', '地熱', 'FIT', 'FIP', '電源', '出力', '発電量', 'PPA', 'ソーラー', '蓄電池', 'VPP', '水素', 'アンモニア', 'CCS'],
+  '送配電': ['送電', '配電', '送配電', '系統', '連系', 'ネットワーク', '接続', '変電', '潮流', '増強', '架線', '鉄塔', '地中化', '停電', '復旧', '電力融通', '周波数', '電圧', '調整力', '容量市場', '需給調整', 'OCCTO', '広域機関', 'インバランス', '一般送配電', 'スマートグリッド', 'DER'],
+};
 
-function classifyArticle(title, desc) {
+const GRID_KEYWORDS = {
+  '火力最適化': ['火力最適化', 'ELD', '単価表', '燃料費最適化', '発電コスト最適化', '火力スケジューリング', '発電計画最適化', '燃料調達最適化'],
+  '需給管理': ['需給最適化', '需給管理', '需給調整', '需給予測', 'バランシング', 'インバランス回避', 'インバランス管理', '需要予測', '供給計画'],
+  '系統運用': ['系統運用', '系統安定', '潮流計算', '電力融通', '連系線活用', '系統制御', '系統整備'],
+  'DX・AI': ['AIエージェント', 'AI活用', 'データ活用', 'データ統合', 'DX推進', 'デジタル変革', '業務自動化', '意思決定支援', 'SaaS導入', 'デジタル人材'],
+};
+
+function classifySignal(title, desc) {
+  const text = title + ' ' + desc;
+  const scores = {};
+  for (const [signal, keywords] of Object.entries(SIGNAL_RULES)) {
+    scores[signal] = keywords.filter(kw => text.includes(kw)).length;
+  }
+  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  return best[1] > 0 ? best[0] : '一般情報';
+}
+
+function classifyCategory(title, desc) {
   const text = (title + ' ' + desc).toLowerCase();
   const scores = {};
-
   for (const [cat, keywords] of Object.entries(CATEGORY_RULES)) {
     scores[cat] = keywords.filter(kw => text.includes(kw.toLowerCase())).length;
   }
-
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-  if (best[1] === 0) return null; // 電力関連でない
-  return best[0];
+  return best[1] > 0 ? best[0] : null;
 }
 
-function checkGridRelevance(title, desc) {
+function analyzeGridRelevance(title, desc) {
   const text = title + ' ' + desc;
-  const matched = GRID_KEYWORDS.filter(kw => text.includes(kw));
-  if (matched.length === 0) return { isGridRelated: false, gridRelevance: '' };
+  const matched = {};
+  for (const [product, keywords] of Object.entries(GRID_KEYWORDS)) {
+    const hits = keywords.filter(kw => text.includes(kw));
+    if (hits.length > 0) matched[product] = hits;
+  }
+  if (Object.keys(matched).length === 0) return { isGridRelated: false, gridProduct: '', gridRelevance: '' };
 
-  const relevance = generateGridRelevance(title, matched);
-  return { isGridRelated: true, gridRelevance: relevance };
+  const product = Object.keys(matched)[0];
+  const relevanceMap = {
+    '火力最適化': 'GRIDの火力最適化・ELD単価自動作成ソリューションの直接提案対象',
+    '需給管理': 'GRIDの電力需給最適化AIによる自動化・高度化の提案機会',
+    '系統運用': 'GRIDの系統運用支援システムとの親和性が高い案件',
+    'DX・AI': 'DX推進の文脈でGRIDのSaaSソリューション導入を提案できる',
+  };
+  return {
+    isGridRelated: true,
+    gridProduct: product,
+    gridRelevance: relevanceMap[product] || 'GRIDのソリューション提案機会',
+  };
 }
 
-function generateGridRelevance(title, matched) {
-  const kw = matched[0];
-  if (['ELD', '単価表', '燃料費最適化', '火力最適化'].some(k => matched.includes(k))) {
-    return 'GRIDの火力最適化・ELD単価ソリューションの直接的な適用領域';
+function calcUrgency(signal, isGridRelated) {
+  if (isGridRelated && ['投資・拡大', '課題・問題'].includes(signal)) return 'high';
+  if (isGridRelated || signal === '投資・拡大') return 'medium';
+  return 'low';
+}
+
+function suggestAction(signal, urgency, isGridRelated, gridProduct) {
+  if (urgency === 'high') {
+    if (gridProduct === '火力最適化') return '🔥 ELD単価提案の絶好タイミング — 至急アポ打診';
+    if (gridProduct === '需給管理') return '🔥 需給管理AIの提案機会 — 担当者へ即コンタクト';
+    return '🔥 提案機会あり — 至急アポ打診を検討';
   }
-  if (['需給最適化', '需給管理', '需給調整', '需給予測'].some(k => matched.includes(k))) {
-    return 'GRIDの電力需給最適化AIとの連携・提案機会';
-  }
-  if (['系統運用', 'AIエージェント', 'AI活用', '最適化AI'].some(k => matched.includes(k))) {
-    return 'GRIDの系統運用支援AIによる業務効率化の提案機会';
-  }
-  if (['DX', 'デジタル', 'データ活用', 'データ統合', 'SaaS'].some(k => matched.includes(k))) {
-    return 'DX推進に伴いGRIDの需給管理SaaSの導入提案が有望';
-  }
-  return `「${kw}」領域でGRIDのソリューション提案が可能`;
+  if (signal === '投資・拡大') return '📈 投資・拡大のタイミングで需要が生まれやすい — ヒアリング推奨';
+  if (signal === '課題・問題') return '💡 課題の裏にGRID提案のフックあり — 課題ヒアリングに活用';
+  if (signal === '規制・政策') return '📋 規制対応ニーズが顕在化している — 対応支援として提案';
+  if (signal === '競合動向') return '⚠️ 競合製品の採用動向を把握 — 差別化ポイントを確認';
+  if (signal === '組織変化') return '👤 人事・体制変化後は提案リセットの好機 — 新担当者への挨拶検討';
+  return '📰 業界トレンドとして情報収集';
 }
 
 // ── RSS fetch ─────────────────────────────────────────────
@@ -86,10 +104,7 @@ function fetchUrl(url) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const req = mod.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-      }
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' }
     }, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return fetchUrl(res.headers.location).then(resolve).catch(reject);
@@ -100,27 +115,25 @@ function fetchUrl(url) {
       res.on('end', () => resolve(data));
     });
     req.on('error', reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('RSS fetch timeout')); });
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
 function cleanText(str) {
   return String(str || '')
     .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
 }
 
 async function fetchRSS(company) {
   const queries = [
-    `${company} 電力`,
-    `${company} エネルギー 発電`,
-    `${company} 送配電 系統`,
+    `${company} 電力 投資 計画`,
+    `${company} 電力 課題 DX 効率化`,
+    `${company} 発電 再エネ 火力`,
+    `${company} 送配電 系統 ネットワーク`,
+    `${company} 電力 小売 料金 需要家`,
+    `${company} エネルギー 規制 政策`,
   ];
 
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -134,23 +147,19 @@ async function fetchRSS(company) {
       const items = parsed?.rss?.channel?.item || [];
       const list = Array.isArray(items) ? items : [items];
 
-      for (const item of list.slice(0, 8)) {
+      for (const item of list.slice(0, 6)) {
         const title = cleanText(item.title);
-        const url = cleanText(item.link || (typeof item.guid === 'string' ? item.guid : item.guid?.['#text']) || '');
+        const link = cleanText(item.link || (typeof item.guid === 'string' ? item.guid : item.guid?.['#text']) || '');
         const pubDate = cleanText(item.pubDate);
-        const desc = cleanText(item.description).split(' - ')[0]; // remove source name suffix
+        const desc = cleanText(item.description).split(' - ')[0];
         const source = cleanText(item.source?.['#text'] || item.source || '');
-
-        if (title && url) {
-          articles.push({ title, url, publishedAt: pubDate, desc, source });
-        }
+        if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source });
       }
     } catch (e) {
-      console.error(`RSS error [${q}]:`, e.message);
+      console.error(`RSS [${q}]:`, e.message);
     }
   }
 
-  // Deduplicate by title similarity
   const seen = new Set();
   return articles.filter(a => {
     const key = a.title.slice(0, 30);
@@ -160,11 +169,10 @@ async function fetchRSS(company) {
   });
 }
 
-// ── Storage ──────────────────────────────────────────────
+// ── Storage ───────────────────────────────────────────────
 async function loadNews() {
-  try {
-    return JSON.parse(await fs.readFile(DATA_FILE, 'utf-8'));
-  } catch { return []; }
+  try { return JSON.parse(await fs.readFile(DATA_FILE, 'utf-8')); }
+  catch { return []; }
 }
 
 async function saveNews(news) {
@@ -179,13 +187,11 @@ function cleanOldNews(news) {
 }
 
 // ── Routes ────────────────────────────────────────────────
-app.get('/api/status', (req, res) => {
-  res.json({ ready: true, mode: 'rss-keyword' });
-});
+app.get('/api/status', (req, res) => res.json({ ready: true }));
 
 app.get('/api/news', async (req, res) => {
   try {
-    const { company, range, category } = req.query;
+    const { company, range, category, signal, urgency } = req.query;
     let news = cleanOldNews(await loadNews());
 
     if (company) news = news.filter(n => n.company === company);
@@ -200,7 +206,15 @@ app.get('/api/news', async (req, res) => {
     }
 
     if (category && category !== 'all') news = news.filter(n => n.category === category);
-    news.sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt));
+    if (signal && signal !== 'all') news = news.filter(n => n.signal === signal);
+    if (urgency && urgency !== 'all') news = news.filter(n => n.urgency === urgency);
+
+    news.sort((a, b) => {
+      const urgencyOrder = { high: 0, medium: 1, low: 2 };
+      return (urgencyOrder[a.urgency] ?? 2) - (urgencyOrder[b.urgency] ?? 2)
+        || new Date(b.fetchedAt) - new Date(a.fetchedAt);
+    });
+
     res.json({ success: true, articles: news });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -217,6 +231,35 @@ app.get('/api/companies', async (req, res) => {
   }
 });
 
+app.get('/api/summary', async (req, res) => {
+  try {
+    const { company } = req.query;
+    let news = cleanOldNews(await loadNews());
+    if (company) news = news.filter(n => n.company === company);
+
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    const recentNews = news.filter(n => new Date(n.fetchedAt) >= weekAgo);
+
+    const summary = {
+      total: news.length,
+      recentCount: recentNews.length,
+      highUrgency: news.filter(n => n.urgency === 'high').length,
+      gridRelated: news.filter(n => n.isGridRelated).length,
+      signals: {},
+      categories: {},
+    };
+
+    news.forEach(n => {
+      summary.signals[n.signal] = (summary.signals[n.signal] || 0) + 1;
+      summary.categories[n.category] = (summary.categories[n.category] || 0) + 1;
+    });
+
+    res.json({ success: true, summary });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/fetch-news', async (req, res) => {
   const { company } = req.body;
   if (!company?.trim()) return res.status(400).json({ success: false, error: '企業名を入力してください' });
@@ -225,38 +268,45 @@ app.post('/api/fetch-news', async (req, res) => {
 
   try {
     const rawArticles = await fetchRSS(companyName);
+    if (rawArticles.length === 0) {
+      return res.json({ success: true, count: 0, articles: [], message: 'ニュースが見つかりませんでした' });
+    }
 
     const now = new Date().toISOString();
-    const enriched = rawArticles
-      .map(a => {
-        const category = classifyArticle(a.title, a.desc);
-        if (!category) return null;
+    const enriched = rawArticles.map(a => {
+      const category = classifyCategory(a.title, a.desc);
+      if (!category) return null;
 
-        const { isGridRelated, gridRelevance } = checkGridRelevance(a.title, a.desc);
+      const signal = classifySignal(a.title, a.desc);
+      const { isGridRelated, gridProduct, gridRelevance } = analyzeGridRelevance(a.title, a.desc);
+      const urgency = calcUrgency(signal, isGridRelated);
+      const action = suggestAction(signal, urgency, isGridRelated, gridProduct);
 
-        let pubDate = '';
-        if (a.publishedAt) {
-          try { pubDate = new Date(a.publishedAt).toISOString().slice(0, 10); } catch {}
-        }
+      let pubDate = '';
+      if (a.publishedAt) {
+        try { pubDate = new Date(a.publishedAt).toISOString().slice(0, 10); } catch {}
+      }
 
-        return {
-          id: crypto.randomUUID(),
-          company: companyName,
-          title: a.title,
-          summary: a.desc || a.title,
-          url: a.url,
-          source: a.source,
-          category,
-          isGridRelated,
-          gridRelevance,
-          publishedAt: pubDate,
-          fetchedAt: now,
-        };
-      })
-      .filter(Boolean);
+      return {
+        id: crypto.randomUUID(),
+        company: companyName,
+        title: a.title,
+        summary: a.desc || a.title,
+        url: a.url,
+        source: a.source,
+        category,
+        signal,
+        urgency,
+        action,
+        isGridRelated,
+        gridProduct,
+        gridRelevance,
+        publishedAt: pubDate,
+        fetchedAt: now,
+      };
+    }).filter(Boolean);
 
     const existing = cleanOldNews(await loadNews());
-    // Remove duplicates (same company + title)
     const existingKeys = new Set(existing.filter(n => n.company === companyName).map(n => n.title));
     const newOnly = enriched.filter(a => !existingKeys.has(a.title));
 
@@ -270,5 +320,4 @@ app.post('/api/fetch-news', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`⚡ Energy News Tracker: http://localhost:${PORT}`);
-  console.log(`   Mode: Google News RSS + keyword classification`);
 });

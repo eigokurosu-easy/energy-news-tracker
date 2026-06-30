@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>電力業界ニュースダッシュボード</title>
+  <title>電力業界 営業インテリジェンス</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,13 +11,17 @@
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">⚡</span>
-        <h1>電力業界ニュースダッシュボード</h1>
-        <span class="logo-sub">Powered by GRID</span>
+        <div>
+          <h1>電力業界 営業インテリジェンス</h1>
+          <span class="logo-sub">Powered by GRID</span>
+        </div>
       </div>
-      <div class="range-toggle">
-        <button class="range-btn active" data-range="daily">デイリー</button>
-        <button class="range-btn" data-range="weekly">週次</button>
-        <button class="range-btn" data-range="monthly">1ヶ月</button>
+      <div class="header-right">
+        <div class="range-toggle">
+          <button class="range-btn active" data-range="daily">デイリー</button>
+          <button class="range-btn" data-range="weekly">週次</button>
+          <button class="range-btn" data-range="monthly">1ヶ月</button>
+        </div>
       </div>
     </div>
   </header>
@@ -25,12 +29,10 @@
   <section class="fetch-panel">
     <div class="fetch-inner">
       <div class="fetch-form">
-        <label class="fetch-label">企業名</label>
+        <label class="fetch-label">ターゲット企業</label>
         <div class="fetch-row">
           <input type="text" id="companyInput" placeholder="例：関西電力、東京電力、中部電力..." class="company-input" />
-          <button id="fetchBtn" class="btn-primary">
-            <span>🔍</span> ニュースを取得
-          </button>
+          <button id="fetchBtn" class="btn-primary">ニュースを取得</button>
         </div>
         <div class="company-history" id="companyHistory"></div>
       </div>
@@ -38,26 +40,60 @@
     </div>
   </section>
 
-  <section class="category-bar">
-    <div class="category-inner">
-      <span class="category-label">カテゴリ</span>
-      <div class="category-tabs">
-        <button class="cat-btn active" data-cat="all">すべて</button>
-        <button class="cat-btn" data-cat="小売り">小売り</button>
-        <button class="cat-btn" data-cat="発電">発電</button>
-        <button class="cat-btn" data-cat="送配電">送配電</button>
+  <section class="filter-bar">
+    <div class="filter-inner">
+      <div class="filter-group">
+        <span class="filter-label">緊急度</span>
+        <div class="filter-tabs" id="urgencyTabs">
+          <button class="filter-btn active" data-urgency="all">すべて</button>
+          <button class="filter-btn" data-urgency="high">
+            <span class="urgency-dot high"></span>要アクション
+          </button>
+          <button class="filter-btn" data-urgency="medium">
+            <span class="urgency-dot medium"></span>注目
+          </button>
+          <button class="filter-btn" data-urgency="low">
+            <span class="urgency-dot low"></span>情報収集
+          </button>
+        </div>
       </div>
-      <select id="companyFilter" class="company-select">
-        <option value="">すべての企業</option>
-      </select>
+      <div class="filter-group">
+        <span class="filter-label">シグナル</span>
+        <div class="filter-tabs" id="signalTabs">
+          <button class="filter-btn active" data-signal="all">すべて</button>
+          <button class="filter-btn" data-signal="投資・拡大">投資・拡大</button>
+          <button class="filter-btn" data-signal="課題・問題">課題・問題</button>
+          <button class="filter-btn" data-signal="規制・政策">規制・政策</button>
+          <button class="filter-btn" data-signal="競合動向">競合動向</button>
+          <button class="filter-btn" data-signal="組織変化">組織変化</button>
+        </div>
+      </div>
+      <div class="filter-group filter-group-right">
+        <span class="filter-label">カテゴリ</span>
+        <div class="filter-tabs" id="categoryTabs">
+          <button class="filter-btn active" data-cat="all">すべて</button>
+          <button class="filter-btn" data-cat="小売り">小売り</button>
+          <button class="filter-btn" data-cat="発電">発電</button>
+          <button class="filter-btn" data-cat="送配電">送配電</button>
+        </div>
+        <select id="companyFilter" class="company-select">
+          <option value="">すべての企業</option>
+        </select>
+      </div>
     </div>
   </section>
 
   <div class="content-area">
+    <!-- Company Summary -->
+    <div class="company-summary" id="companySummary" style="display:none">
+      <div class="summary-cards" id="summaryCards"></div>
+    </div>
+
+    <!-- GRID Topics -->
     <section class="grid-topics" id="gridTopicsSection" style="display:none">
       <div class="grid-header-bar">
-        <span class="grid-badge">Grid Topics</span>
-        <h2>GRIDに関連するニュース</h2>
+        <span class="grid-badge">GRID TOPICS</span>
+        <h2>提案機会あり</h2>
         <span class="section-count" id="gridCount">0件</span>
       </div>
       <div class="grid-articles-inner">
@@ -65,17 +101,18 @@
       </div>
     </section>
 
+    <!-- All Articles -->
     <div class="categories-container" id="categoriesContainer"></div>
 
     <div class="empty-state" id="emptyState" style="display:none">
-      <div class="empty-icon">📰</div>
+      <div class="empty-icon">🔍</div>
       <p>ニュースがありません</p>
-      <p class="empty-sub">企業名を入力してニュースを取得してください</p>
+      <p class="empty-sub">ターゲット企業名を入力してニュースを取得してください</p>
     </div>
 
     <div class="loading-state" id="loadingState" style="display:none">
       <div class="spinner"></div>
-      <p>Claude がニュースを検索中...</p>
+      <p>ニュースを収集・分析中...</p>
     </div>
   </div>
 

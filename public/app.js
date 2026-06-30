@@ -1,24 +1,26 @@
 const CATEGORY_CONFIG = {
-  '小売り': { key: 'retail', icon: '🛒', color: '#f59e0b' },
-  '発電': { key: 'generation', icon: '🏭', color: '#3b82f6' },
-  '送配電': { key: 'transmission', icon: '🔌', color: '#10b981' },
+  '小売り': { key: 'retail' },
+  '発電':   { key: 'generation' },
+  '送配電': { key: 'transmission' },
 };
 
 let currentRange = 'daily';
 let currentCategory = 'all';
+let currentSignal = 'all';
+let currentUrgency = 'all';
 let currentCompany = '';
 let allArticles = [];
 
-// --- Init ---
-document.addEventListener('DOMContentLoaded', async () => {
+// ── Init ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
   setupRangeToggle();
-  setupCategoryFilter();
+  setupFilters();
   setupFetchForm();
   setupCompanyFilter();
   loadNews();
 });
 
-// --- Range Toggle ---
+// ── Range ────────────────────────────────────────────────
 function setupRangeToggle() {
   document.querySelectorAll('.range-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -30,11 +32,29 @@ function setupRangeToggle() {
   });
 }
 
-// --- Category Filter ---
-function setupCategoryFilter() {
-  document.querySelectorAll('.cat-btn').forEach(btn => {
+// ── Filters ───────────────────────────────────────────────
+function setupFilters() {
+  document.querySelectorAll('#urgencyTabs .filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#urgencyTabs .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentUrgency = btn.dataset.urgency;
+      renderArticles(allArticles);
+    });
+  });
+
+  document.querySelectorAll('#signalTabs .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#signalTabs .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSignal = btn.dataset.signal;
+      renderArticles(allArticles);
+    });
+  });
+
+  document.querySelectorAll('#categoryTabs .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#categoryTabs .filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentCategory = btn.dataset.cat;
       renderArticles(allArticles);
@@ -42,22 +62,21 @@ function setupCategoryFilter() {
   });
 }
 
-// --- Company Filter ---
+// ── Company filter ────────────────────────────────────────
 function setupCompanyFilter() {
   document.getElementById('companyFilter').addEventListener('change', e => {
     currentCompany = e.target.value;
     loadNews();
+    updateSummary();
   });
 }
 
-// --- Fetch Form ---
+// ── Fetch form ────────────────────────────────────────────
 function setupFetchForm() {
   const input = document.getElementById('companyInput');
   const btn = document.getElementById('fetchBtn');
-
   btn.addEventListener('click', fetchNews);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') fetchNews(); });
-
   renderHistoryTags();
 }
 
@@ -66,17 +85,16 @@ function getHistory() {
 }
 
 function addToHistory(company) {
-  let history = getHistory();
-  history = [company, ...history.filter(c => c !== company)].slice(0, 8);
-  localStorage.setItem('companyHistory', JSON.stringify(history));
+  let h = getHistory();
+  h = [company, ...h.filter(c => c !== company)].slice(0, 8);
+  localStorage.setItem('companyHistory', JSON.stringify(h));
   renderHistoryTags();
 }
 
 function renderHistoryTags() {
-  const history = getHistory();
   const container = document.getElementById('companyHistory');
-  container.innerHTML = history.map(c =>
-    `<span class="history-tag" onclick="selectCompany('${c}')">${c}</span>`
+  container.innerHTML = getHistory().map(c =>
+    `<span class="history-tag" onclick="selectCompany('${escHtml(c)}')">${escHtml(c)}</span>`
   ).join('');
 }
 
@@ -91,36 +109,41 @@ async function fetchNews() {
   const btn = document.getElementById('fetchBtn');
   const status = document.getElementById('fetchStatus');
   btn.disabled = true;
-  btn.innerHTML = '<span class="btn-icon">⏳</span> 検索中...';
+  btn.textContent = '収集中...';
   showLoading(true);
-  status.textContent = `Claude が「${company}」のニュースを検索中...`;
+  status.textContent = `「${company}」のニュースを分析中...`;
 
   try {
     const res = await fetch('/api/fetch-news', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ company })
+      body: JSON.stringify({ company }),
     });
     const data = await res.json();
-
     if (!data.success) throw new Error(data.error);
 
     addToHistory(company);
-    showToast(`✅ ${data.count}件のニュースを取得しました`, 'success');
-    status.textContent = `${data.count}件取得完了`;
+    showToast(`${data.count}件の新着ニュースを取得`, 'success');
+    status.textContent = `新着 ${data.count}件`;
+
+    // 取得した会社を選択状態にする
+    document.getElementById('companyFilter').value = company;
+    currentCompany = company;
+
     await loadNews();
     await refreshCompanyFilter();
+    updateSummary();
   } catch (err) {
     showToast(`エラー: ${err.message}`, 'error');
-    status.textContent = 'エラーが発生しました';
+    status.textContent = '';
     showLoading(false);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<span class="btn-icon">🔍</span> ニュースを取得';
+    btn.textContent = 'ニュースを取得';
   }
 }
 
-// --- Load / Render ---
+// ── Load / Render ─────────────────────────────────────────
 async function loadNews() {
   showLoading(true);
   try {
@@ -132,7 +155,7 @@ async function loadNews() {
     allArticles = data.articles || [];
     renderArticles(allArticles);
     await refreshCompanyFilter();
-  } catch (err) {
+  } catch {
     showToast('ニュースの読み込みに失敗しました', 'error');
   } finally {
     showLoading(false);
@@ -145,49 +168,86 @@ async function refreshCompanyFilter() {
   const select = document.getElementById('companyFilter');
   const current = select.value;
   select.innerHTML = '<option value="">すべての企業</option>' +
-    (data.companies || []).map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+    (data.companies || []).map(c =>
+      `<option value="${escHtml(c)}" ${c === current ? 'selected' : ''}>${escHtml(c)}</option>`
+    ).join('');
+}
+
+async function updateSummary() {
+  const summaryEl = document.getElementById('companySummary');
+  if (!currentCompany) { summaryEl.style.display = 'none'; return; }
+
+  const res = await fetch(`/api/summary?company=${encodeURIComponent(currentCompany)}`);
+  const data = await res.json();
+  if (!data.success) return;
+
+  const s = data.summary;
+  summaryEl.style.display = 'block';
+
+  const topSignal = Object.entries(s.signals || {}).sort((a, b) => b[1] - a[1])[0];
+
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="summary-card ${s.highUrgency > 0 ? 'urgent' : ''}">
+      <div class="summary-num ${s.highUrgency > 0 ? 'red' : ''}">${s.highUrgency}</div>
+      <div class="summary-label">要アクション</div>
+    </div>
+    <div class="summary-card ${s.gridRelated > 0 ? 'grid' : ''}">
+      <div class="summary-num ${s.gridRelated > 0 ? 'green' : ''}">${s.gridRelated}</div>
+      <div class="summary-label">GRID提案機会</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num">${s.recentCount}</div>
+      <div class="summary-label">直近7日間</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num">${s.total}</div>
+      <div class="summary-label">総記事数（30日）</div>
+    </div>
+    ${topSignal ? `
+    <div class="summary-card">
+      <div class="summary-num" style="font-size:16px;padding-top:4px">${topSignal[0]}</div>
+      <div class="summary-label">主要シグナル（${topSignal[1]}件）</div>
+    </div>` : ''}
+  `;
+}
+
+function applyFilters(articles) {
+  return articles.filter(a => {
+    if (currentCategory !== 'all' && a.category !== currentCategory) return false;
+    if (currentSignal !== 'all' && a.signal !== currentSignal) return false;
+    if (currentUrgency !== 'all' && a.urgency !== currentUrgency) return false;
+    return true;
+  });
 }
 
 function renderArticles(articles) {
-  const filtered = currentCategory === 'all'
-    ? articles
-    : articles.filter(a => a.category === currentCategory);
-
+  const filtered = applyFilters(articles);
   const gridArticles = filtered.filter(a => a.isGridRelated);
   const regularArticles = filtered.filter(a => !a.isGridRelated);
 
   // GRID Topics
   const gridSection = document.getElementById('gridTopicsSection');
-  const gridContainer = document.getElementById('gridArticles');
   document.getElementById('gridCount').textContent = `${gridArticles.length}件`;
-
   if (gridArticles.length > 0) {
     gridSection.style.display = 'block';
-    gridContainer.innerHTML = gridArticles.map(a => renderCard(a)).join('');
+    document.getElementById('gridArticles').innerHTML = gridArticles.map(renderCard).join('');
   } else {
     gridSection.style.display = 'none';
   }
 
-  // Regular by category
   const container = document.getElementById('categoriesContainer');
   const empty = document.getElementById('emptyState');
 
-  if (regularArticles.length === 0 && gridArticles.length === 0) {
+  if (filtered.length === 0) {
     container.innerHTML = '';
     empty.style.display = 'block';
     return;
   }
-
   empty.style.display = 'none';
 
-  const byCategory = {};
   const cats = currentCategory === 'all' ? Object.keys(CATEGORY_CONFIG) : [currentCategory];
-  cats.forEach(cat => {
-    byCategory[cat] = regularArticles.filter(a => a.category === cat);
-  });
-
   container.innerHTML = cats.map(cat => {
-    const catArticles = byCategory[cat];
+    const catArticles = regularArticles.filter(a => a.category === cat);
     if (catArticles.length === 0) return '';
     const cfg = CATEGORY_CONFIG[cat];
     return `
@@ -197,47 +257,57 @@ function renderArticles(articles) {
           <h3>${cat}</h3>
           <span class="cat-article-count">${catArticles.length}件</span>
         </div>
-        <div class="news-grid">
-          ${catArticles.map(a => renderCard(a)).join('')}
-        </div>
-      </div>
-    `;
+        <div class="news-grid">${catArticles.map(renderCard).join('')}</div>
+      </div>`;
   }).join('');
 }
 
 function renderCard(article) {
   const cfg = CATEGORY_CONFIG[article.category] || { key: 'retail' };
-  const fetchedDate = new Date(article.fetchedAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
   const pubDate = article.publishedAt
-    ? new Date(article.publishedAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
-    : fetchedDate;
+    ? article.publishedAt.slice(5).replace('-', '/')
+    : new Date(article.fetchedAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 
   const proposalPrompt = encodeURIComponent(
-    `以下のニュース記事から提案仮説を作ってください。\n\n【タイトル】${article.title}\n【サマリー】${article.summary}\n【出典】${article.source || article.url}\n\nこのニュースから提案を作って`
+    `以下の電力業界ニュースから営業提案仮説を作ってください。\n\n` +
+    `【企業】${article.company}\n` +
+    `【タイトル】${article.title}\n` +
+    `【シグナル】${article.signal}\n` +
+    `【カテゴリ】${article.category}\n` +
+    `【サマリー】${article.summary}\n` +
+    `【出典】${article.source}\n\n` +
+    `このニュースから提案を作って`
   );
+
+  const isHighUrgency = article.urgency === 'high';
 
   return `
     <div class="article-card">
-      <div class="article-meta">
+      <div class="card-urgency-bar ${article.urgency || 'low'}"></div>
+      <div class="article-top">
         <span class="cat-tag ${cfg.key}">${article.category}</span>
-        <span class="article-company">${escHtml(article.company)}</span>
-        <span class="article-date">${pubDate}</span>
+        <span class="signal-tag ${escHtml(article.signal || '一般情報')}">${escHtml(article.signal || '一般情報')}</span>
+        <div class="article-meta-right">
+          <span class="article-company">${escHtml(article.company)}</span>
+          <span class="article-date">${pubDate}</span>
+        </div>
       </div>
       <div class="article-title">${escHtml(article.title)}</div>
       <div class="article-summary">${escHtml(article.summary)}</div>
       ${article.isGridRelated && article.gridRelevance ? `
-        <div class="grid-relevance">${escHtml(article.gridRelevance)}</div>
-      ` : ''}
-      <div class="article-source">${escHtml(article.source || '出典不明')}</div>
+        <div class="grid-relevance">${escHtml(article.gridRelevance)}</div>` : ''}
+      ${article.action ? `
+        <div class="action-box action-${article.urgency || 'low'}">${escHtml(article.action)}</div>` : ''}
+      <div class="article-source">${escHtml(article.source || '')}</div>
       <div class="article-actions">
         <a href="${escHtml(article.url)}" target="_blank" rel="noopener" class="btn-link btn-article">記事を読む →</a>
-        <a href="https://claude.ai/new?q=${proposalPrompt}" target="_blank" rel="noopener" class="btn-link btn-proposal">提案資料を作成</a>
+        <a href="https://claude.ai/new?q=${proposalPrompt}" target="_blank" rel="noopener"
+           class="btn-link btn-proposal ${isHighUrgency ? 'urgent' : ''}">提案資料を作成</a>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
-// --- Utils ---
+// ── Utils ─────────────────────────────────────────────────
 function showLoading(show) {
   document.getElementById('loadingState').style.display = show ? 'block' : 'none';
   document.getElementById('categoriesContainer').style.display = show ? 'none' : 'block';
@@ -251,6 +321,7 @@ function showToast(msg, type = '') {
 }
 
 function escHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
