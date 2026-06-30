@@ -132,6 +132,38 @@ function suggestAction(signal, urgency, isGridRelated, gridProduct) {
   return '📰 業界トレンドとして情報収集';
 }
 
+// ── Relevance filters ─────────────────────────────────────
+const EVENT_KEYWORDS = ['セミナー', 'ウェビナー', '説明会', 'イベント', '展示会', 'カンファレンス', 'シンポジウム', '講演会', 'フォーラム', '研修', 'ワークショップ'];
+
+function isRelevantToCompany(company, title, desc) {
+  // 企業名がタイトルに含まれている記事のみ信頼度が高い
+  // タイトルに含まれない場合は関連性が低いと判断
+  const titleLower = title.toLowerCase();
+  const companyLower = company.toLowerCase();
+
+  // 会社名の主要部分（「株式会社」「ホールディングス」等を除いた名称）を生成
+  const companyCore = company
+    .replace(/株式会社|（株）|\(株\)|ホールディングス|HD|グループ|電力|電気/g, '')
+    .trim();
+
+  return title.includes(company) ||
+         title.includes(companyCore) ||
+         titleLower.includes(companyLower);
+}
+
+function isExpiredEvent(title, desc, publishedAt) {
+  const text = title + ' ' + desc;
+  const isEvent = EVENT_KEYWORDS.some(kw => text.includes(kw));
+  if (!isEvent) return false;
+
+  // セミナー系記事は掲載から14日以上経過したら期限切れとみなす
+  if (!publishedAt) return false;
+  const pubDate = new Date(publishedAt);
+  if (isNaN(pubDate.getTime())) return false;
+  const daysSincePub = (Date.now() - pubDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSincePub > 14;
+}
+
 // ── RSS fetch ─────────────────────────────────────────────
 function fetchUrl(url) {
   return new Promise((resolve, reject) => {
@@ -348,6 +380,12 @@ app.post('/api/fetch-news', async (req, res) => {
 
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
+      // 企業名がタイトルに含まれない記事を除外
+      if (!isRelevantToCompany(companyName, a.title, a.desc)) return null;
+
+      // 期限切れのセミナー・イベント記事を除外
+      if (isExpiredEvent(a.title, a.desc, a.publishedAt)) return null;
+
       let category = null, signal, urgency, action, isGridRelated = false, gridProduct = '', gridRelevance = '';
 
       if (isCompetitor) {
