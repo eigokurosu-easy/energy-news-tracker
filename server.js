@@ -242,6 +242,11 @@ async function fetchRSS(company) {
     `${company} 送配電 系統 ネットワーク`,
     `${company} 電力 小売 料金 需要家`,
     `${company} エネルギー 規制 政策`,
+    // プレスリリース専用
+    `${company} site:prtimes.jp`,
+    `${company} site:atpress.ne.jp`,
+    `${company} site:kyodonewsprwire.jp`,
+    `${company} プレスリリース 発表`,
   ];
 
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -410,6 +415,11 @@ app.post('/api/fetch-news', async (req, res) => {
       `${name} 提携 協業 パートナー`,
       `${name} 資金調達 上場 IPO`,
       `${name} 電力 エネルギー AI システム`,
+      // プレスリリース専用
+      `${name} site:prtimes.jp`,
+      `${name} site:atpress.ne.jp`,
+      `${name} site:kyodonewsprwire.jp`,
+      `${name} プレスリリース 発表`,
     ];
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
     const articles = [];
