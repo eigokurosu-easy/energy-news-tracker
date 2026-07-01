@@ -488,8 +488,8 @@ app.post('/api/fetch-news', async (req, res) => {
 
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
-      // 顧客モードのみ関連性フィルターを適用（競合はRSSクエリ自体が会社名指定なので不要）
-      if (!isCompetitor && !isRelevantToCompany(companyName, a.title, a.desc, true)) return null;
+      // 顧客モードはタイトル限定、競合モードはタイトル+説明文で会社名の言及を必須にする
+      if (!isRelevantToCompany(companyName, a.title, a.desc, !isCompetitor)) return null;
 
       // 個人ブログ・SNS・UGCを除外（note.comは企業公式URLのみ許可）
       if (isPersonalContent(a.url, a.source, companyName)) return null;
