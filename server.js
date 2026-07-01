@@ -440,26 +440,26 @@ app.post('/api/fetch-news', async (req, res) => {
   const companyName = company.trim();
   const isCompetitor = companyType === 'competitor';
 
-  // 競合用のRSSクエリ
+  // 競合用のRSSクエリ（site: 指定クエリはtrustedSource扱いで厳密一致チェックを免除）
   async function fetchCompetitorRSS(name) {
     const queries = [
-      `${name} 新製品 サービス リリース`,
-      `${name} 受注 導入 採用 契約`,
-      `${name} 提携 協業 パートナー`,
-      `${name} 資金調達 上場 IPO`,
-      `${name} 電力 エネルギー AI システム`,
-      // プレスリリース専用
-      `${name} site:prtimes.jp`,
-      `${name} site:atpress.ne.jp`,
-      `${name} site:kyodonewsprwire.jp`,
-      `${name} プレスリリース 発表`,
+      { q: `${name} 新製品 サービス リリース`, trusted: false },
+      { q: `${name} 受注 導入 採用 契約`, trusted: false },
+      { q: `${name} 提携 協業 パートナー`, trusted: false },
+      { q: `${name} 資金調達 上場 IPO`, trusted: false },
+      { q: `${name} 電力 エネルギー AI システム`, trusted: false },
+      // プレスリリース専用（企業名+ドメイン指定済みのため信頼）
+      { q: `${name} site:prtimes.jp`, trusted: true },
+      { q: `${name} site:atpress.ne.jp`, trusted: true },
+      { q: `${name} site:kyodonewsprwire.jp`, trusted: true },
+      { q: `${name} プレスリリース 発表`, trusted: false },
       // インシデント専用
-      `${name} トラブル 障害 事故 謝罪`,
-      `${name} 行政処分 法令違反 不祥事`,
+      { q: `${name} トラブル 障害 事故 謝罪`, trusted: false },
+      { q: `${name} 行政処分 法令違反 不祥事`, trusted: false },
     ];
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
     const articles = [];
-    for (const q of queries) {
+    for (const { q, trusted } of queries) {
       try {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP&ceid=JP:ja`;
         const xml = await fetchUrl(url);
@@ -472,7 +472,7 @@ app.post('/api/fetch-news', async (req, res) => {
           const pubDate = cleanText(item.pubDate);
           const desc = cleanText(item.description).split(' - ')[0];
           const source = cleanText(item.source?.['#text'] || item.source || '');
-          if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source });
+          if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source, trustedSource: trusted });
         }
       } catch (e) { console.error(`Competitor RSS [${q}]:`, e.message); }
     }
@@ -489,7 +489,8 @@ app.post('/api/fetch-news', async (req, res) => {
     const now = new Date().toISOString();
     const enriched = rawArticles.map(a => {
       // 顧客モードはタイトル限定、競合モードはタイトル+説明文で会社名の言及を必須にする
-      if (!isRelevantToCompany(companyName, a.title, a.desc, !isCompetitor)) return null;
+      // ただしtrustedSource（企業名+ドメイン指定済みのPR検索）はGoogle側の絞り込みを信頼してスキップ
+      if (!a.trustedSource && !isRelevantToCompany(companyName, a.title, a.desc, !isCompetitor)) return null;
 
       // 個人ブログ・SNS・UGCを除外（note.comは企業公式URLのみ許可）
       if (isPersonalContent(a.url, a.source, companyName)) return null;
