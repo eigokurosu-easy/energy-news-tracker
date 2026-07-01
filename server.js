@@ -59,9 +59,25 @@ const SIGNAL_RULES = {
 const INCIDENT_KEYWORDS = ['トラブル', '障害', '不具合', '事故', '故障', '漏電', '火災', '爆発', '漏洩', '漏れ',
   '謝罪', 'お詫び', '陳謝', '遺憾', '補償', '賠償',
   '法令違反', '行政処分', '業務停止', '改善命令', '課徴金', '措置命令', '行政指導', '立入検査',
-  'データ漏洩', '個人情報', 'サイバー', '不正アクセス', 'セキュリティインシデント',
+  'データ漏洩', '個人情報', 'セキュリティインシデント', '不正アクセスを受け', '情報流出',
   '被害', '損害', '欠陥', 'リコール', '回収', '中断', 'システム障害', '大規模停電',
   '書類送検', '逮捕', '起訴', '不祥事', '隠蔽', '虚偽報告', '検査不正'];
+
+// インシデント対策ソリューション提供記事を除外するためのパターン
+// 「〜ソリューションを提供」「〜サービスを導入」のような記事はインシデントではない
+const INCIDENT_SOLUTION_EXCLUSIONS = [
+  'ソリューション提供', 'ソリューションを提供', 'ソリューションを導入', 'ソリューションを採用',
+  'セキュリティソリューション', 'セキュリティサービス', 'セキュリティプラットフォーム',
+  'セキュリティツール', 'サイバーセキュリティ製品', 'セキュリティ製品',
+  '脅威インテリジェンス', 'アタックサーフェス', 'ダークウェブモニタリング',
+  'インシデント対策', 'インシデント対応サービス', 'インシデント防止', 'インシデント管理ツール',
+  'リスク管理ソリューション', 'リスク対策サービス', 'セキュリティ対策製品',
+  '導入事例', '採用事例', 'サービス開始', 'サービスを開始', '提供開始', '新サービス',
+];
+
+function isIncidentSolutionPR(text) {
+  return INCIDENT_SOLUTION_EXCLUSIONS.some(kw => text.includes(kw));
+}
 
 const CATEGORY_RULES = {
   'インシデント': INCIDENT_KEYWORDS,
@@ -88,13 +104,17 @@ function classifySignal(title, desc) {
 }
 
 function classifyCategory(title, desc) {
-  const text = (title + ' ' + desc).toLowerCase();
+  const text = title + ' ' + desc;
+  const textLower = text.toLowerCase();
   const scores = {};
   for (const [cat, keywords] of Object.entries(CATEGORY_RULES)) {
-    scores[cat] = keywords.filter(kw => text.includes(kw.toLowerCase())).length;
+    scores[cat] = keywords.filter(kw => textLower.includes(kw.toLowerCase())).length;
   }
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-  return best[1] > 0 ? best[0] : null;
+  if (best[1] === 0) return null;
+  // インシデント対策ソリューション提供記事はインシデントから除外
+  if (best[0] === 'インシデント' && isIncidentSolutionPR(text)) return null;
+  return best[0];
 }
 
 function analyzeGridRelevance(title, desc) {
