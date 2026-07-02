@@ -295,7 +295,7 @@ async function fetchRSS(company) {
       const items = parsed?.rss?.channel?.item || [];
       const list = Array.isArray(items) ? items : [items];
 
-      for (const item of list.slice(0, denki ? 20 : 6)) {
+      for (const item of list.slice(0, 100)) {
         const title = cleanText(item.title);
         const link = cleanText(item.link || (typeof item.guid === 'string' ? item.guid : item.guid?.['#text']) || '');
         const pubDate = cleanText(item.pubDate);
@@ -470,7 +470,7 @@ app.post('/api/fetch-news', async (req, res) => {
         const parsed = parser.parse(xml);
         const items = parsed?.rss?.channel?.item || [];
         const list = Array.isArray(items) ? items : [items];
-        for (const item of list.slice(0, denki ? 20 : 5)) {
+        for (const item of list.slice(0, 100)) {
           const title = cleanText(item.title);
           const link = cleanText(item.link || (typeof item.guid === 'string' ? item.guid : item.guid?.['#text']) || '');
           const pubDate = cleanText(item.pubDate);
