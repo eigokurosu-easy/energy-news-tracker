@@ -533,3 +533,32 @@ header {
 .filter-btn-incident { color: var(--cat-incident) !important; }
 .filter-btn-incident.active { background: var(--cat-incident) !important; border-color: var(--cat-incident) !important; color: #fff !important; }
 .article-card:has(.cat-tag.incident) { border-left: 3px solid var(--cat-incident); }
+
+/* ── Denki Shimbun Topics ── */
+:root {
+  --denki: #0f4c81;
+  --denki-bg: #eef4fa;
+  --denki-border: #b8cfe6;
+}
+.denki-topics {
+  margin-bottom: 32px;
+  border: 1px solid var(--denki-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.denki-header-bar {
+  background: var(--denki-bg);
+  border-bottom: 1px solid var(--denki-border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.denki-badge {
+  background: var(--denki); color: #fff;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 3px 10px; border-radius: 20px;
+}
+.denki-header-bar h2 { font-size: 13px; font-weight: 700; color: var(--denki); }
+.denki-note { font-size: 10px; color: var(--text-dim); margin-left: auto; }

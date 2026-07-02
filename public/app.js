@@ -352,7 +352,8 @@ function applyFilters(articles) {
 function renderArticles(articles) {
   const filtered = applyFilters(articles);
   const gridArticles = filtered.filter(a => a.isGridRelated);
-  const regularArticles = filtered.filter(a => !a.isGridRelated);
+  const denkiArticles = filtered.filter(a => a.isDenkishimbun);
+  const regularArticles = filtered.filter(a => !a.isGridRelated && !a.isDenkishimbun);
 
   const gridSection = document.getElementById('gridTopicsSection');
   document.getElementById('gridCount').textContent = `${gridArticles.length}件`;
@@ -361,6 +362,15 @@ function renderArticles(articles) {
     document.getElementById('gridArticles').innerHTML = gridArticles.map(renderCard).join('');
   } else {
     gridSection.style.display = 'none';
+  }
+
+  const denkiSection = document.getElementById('denkiTopicsSection');
+  document.getElementById('denkiCount').textContent = `${denkiArticles.length}件`;
+  if (denkiArticles.length > 0) {
+    denkiSection.style.display = 'block';
+    document.getElementById('denkiArticles').innerHTML = denkiArticles.map(renderCard).join('');
+  } else {
+    denkiSection.style.display = 'none';
   }
 
   const container = document.getElementById('categoriesContainer');

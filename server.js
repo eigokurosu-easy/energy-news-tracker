@@ -266,26 +266,28 @@ function cleanText(str) {
 
 async function fetchRSS(company) {
   const queries = [
-    `${company} 電力 投資 計画`,
-    `${company} 電力 課題 DX 効率化`,
-    `${company} 発電 再エネ 火力`,
-    `${company} 送配電 系統 ネットワーク`,
-    `${company} 電力 小売 料金 需要家`,
-    `${company} エネルギー 規制 政策`,
+    { q: `${company} 電力 投資 計画`, trusted: false, denki: false },
+    { q: `${company} 電力 課題 DX 効率化`, trusted: false, denki: false },
+    { q: `${company} 発電 再エネ 火力`, trusted: false, denki: false },
+    { q: `${company} 送配電 系統 ネットワーク`, trusted: false, denki: false },
+    { q: `${company} 電力 小売 料金 需要家`, trusted: false, denki: false },
+    { q: `${company} エネルギー 規制 政策`, trusted: false, denki: false },
     // プレスリリース専用
-    `${company} site:prtimes.jp`,
-    `${company} site:atpress.ne.jp`,
-    `${company} site:kyodonewsprwire.jp`,
-    `${company} プレスリリース 発表`,
+    { q: `${company} site:prtimes.jp`, trusted: true, denki: false },
+    { q: `${company} site:atpress.ne.jp`, trusted: true, denki: false },
+    { q: `${company} site:kyodonewsprwire.jp`, trusted: true, denki: false },
+    { q: `${company} プレスリリース 発表`, trusted: false, denki: false },
     // インシデント専用
-    `${company} トラブル 障害 事故 謝罪`,
-    `${company} 行政処分 法令違反 不祥事`,
+    { q: `${company} トラブル 障害 事故 謝罪`, trusted: false, denki: false },
+    { q: `${company} 行政処分 法令違反 不祥事`, trusted: false, denki: false },
+    // 電気新聞専用（サイト限定検索。ログイン不要でタイトル・リンクのみ取得、記事本文は電気新聞側でログイン）
+    { q: `${company} site:denkishimbun.com`, trusted: true, denki: true },
   ];
 
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
   const articles = [];
 
-  for (const q of queries) {
+  for (const { q, trusted, denki } of queries) {
     try {
       const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP&ceid=JP:ja`;
       const xml = await fetchUrl(url);
@@ -299,7 +301,7 @@ async function fetchRSS(company) {
         const pubDate = cleanText(item.pubDate);
         const desc = cleanText(item.description).split(' - ')[0];
         const source = cleanText(item.source?.['#text'] || item.source || '');
-        if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source });
+        if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source, trustedSource: trusted, isDenkishimbun: denki });
       }
     } catch (e) {
       console.error(`RSS [${q}]:`, e.message);
@@ -456,10 +458,12 @@ app.post('/api/fetch-news', async (req, res) => {
       // インシデント専用
       { q: `${name} トラブル 障害 事故 謝罪`, trusted: false },
       { q: `${name} 行政処分 法令違反 不祥事`, trusted: false },
+      // 電気新聞専用（サイト限定検索。ログイン不要でタイトル・リンクのみ取得、記事本文は電気新聞側でログイン）
+      { q: `${name} site:denkishimbun.com`, trusted: true, denki: true },
     ];
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
     const articles = [];
-    for (const { q, trusted } of queries) {
+    for (const { q, trusted, denki } of queries) {
       try {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP&ceid=JP:ja`;
         const xml = await fetchUrl(url);
@@ -472,7 +476,7 @@ app.post('/api/fetch-news', async (req, res) => {
           const pubDate = cleanText(item.pubDate);
           const desc = cleanText(item.description).split(' - ')[0];
           const source = cleanText(item.source?.['#text'] || item.source || '');
-          if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source, trustedSource: trusted });
+          if (title && link) articles.push({ title, url: link, publishedAt: pubDate, desc, source, trustedSource: trusted, isDenkishimbun: !!denki });
         }
       } catch (e) { console.error(`Competitor RSS [${q}]:`, e.message); }
     }
@@ -507,6 +511,14 @@ app.post('/api/fetch-news', async (req, res) => {
                 : ['提携・協業', '価格・戦略'].includes(signal) ? 'medium' : 'low';
         action = suggestCompetitorAction(signal);
         category = '競合情報'; // 競合は固定カテゴリ
+      } else if (a.isDenkishimbun) {
+        // 電気新聞: カテゴリ分類不要、業界紙記事として別立て表示
+        signal = classifySignal(a.title, a.desc);
+        const grid = analyzeGridRelevance(a.title, a.desc);
+        isGridRelated = grid.isGridRelated; gridProduct = grid.gridProduct; gridRelevance = grid.gridRelevance;
+        category = classifyCategory(a.title, a.desc) || '電気新聞';
+        urgency = calcUrgency(signal, isGridRelated, category);
+        action = suggestAction(signal, urgency, isGridRelated, gridProduct, category);
       } else {
         category = classifyCategory(a.title, a.desc);
         if (!category) return null;
@@ -537,6 +549,7 @@ app.post('/api/fetch-news', async (req, res) => {
         isGridRelated,
         gridProduct,
         gridRelevance,
+        isDenkishimbun: !!a.isDenkishimbun,
         publishedAt: pubDate,
         fetchedAt: now,
       };
